@@ -248,4 +248,5 @@ comp.remove = () => {
   comp.$destroy()
 }
 ```
+输出 comp.$el 是一个注释，这是因为组件里面的 v-if 导致的，在 patch 的 diff 算法里面也是一样的，当后面执行 show() 时就会变成 div 
 
