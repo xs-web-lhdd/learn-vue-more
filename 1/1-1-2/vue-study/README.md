@@ -182,3 +182,70 @@ inject: {
   - 显示错误信息
 - KInput
   - 维护数据
+### input 组件完毕：
+见 form-practice
+### 问题：
+- 1、$parent 牵连性太强，应进行解耦，如果在模板中 KInput 父组件不是 KFormInput 那么该功能就会失效
+- 2、在 KForm 进行全局校验的时候使用的是 $children，不严谨，一旦有异步组件就会出 bug
+- 3、使用 Vue.extend 方式实现 create 方法
+
+#### $parent解决方案：
+从 element 源码中找到解决方案：https://github.com/ElemeFE/element/blob/dev/src/mixins/emitter.js
+
+在 KInput.vue 里面改进：
+```js
+this.dispatch('KFormItem', 'validate')
+```
+由于 dispatch 里面需要 componentName ，因此需要在 KFormItem 里面添加：
+```js
+componentName: 'KFormItem',
+```
+
+##### 步骤：
+- 1、mixin emitter
+- 2、声明 componentName
+- 3、在需要的地方 dispatch()
+
+#### $children解决方案：
+在 KFormItem 组件挂载完成后使用 dispatch 触发 form.addField 事件，并将自己作为参数传递过去，然后 KForm 在 created 中监听 fomr.addField 事件，在回调函数中将子组件传递过来的 this 放入 field 数组中，然后 KForm 进行全局校验的时候可以循环 field ，然后逐个调用他们的 validate 方法进行自我校验
+
+KFormItem中改进：
+```js
+// 派发事件通知 KForm，新增一个 KFormItem 实例
+if(this.prop) {
+  this.dispatch('KForm', 'form.addField', [this])
+}
+```
+
+KForm中改进：
+```js
+componentName: 'KForm',
+
+created() {
+  // 源码的 fields 在 data 中是响应式的，这里咱没有改进为响应式
+  this.fields = []
+  this.$on('form.addField', item => {
+    this.fields.push(item)
+  })
+},
+
+validate() {
+  // 2、较为严谨的写法：
+  const tasks = this.fields.map(item => item.validate())
+}
+```
+
+#### 使用Vue.extend方式实现create方法：
+- Vue.extend
+```js
+const Ctor = Vue.extend(Component)
+// 创建组件实例：
+const comp = new Ctor({propsData: props})
+comp.$mount()
+document.body.appendChild(comp.$el)
+comp.remove = () => {
+  document.body.removeChild(comp.$el)
+  comp.$destroy()
+}
+```
+

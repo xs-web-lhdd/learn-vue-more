@@ -1,7 +1,8 @@
 import Vue from 'vue'
 // import App from './App.vue'
 // import App from './components/communication/index.vue'
-import App from './components/form-practice/index.vue'
+// import App from './components/form-practice/index.vue'
+import App from './components/form-practice-more/index.vue'
 
 Vue.config.productionTip = false
 // 事件总线
