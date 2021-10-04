@@ -2,6 +2,7 @@ let LVue
 // 插件
 // 1、实现一个 install 方法
 class lVueRouter {
+  // LVue会在这个里面进行使用
   constructor(options) {
     this.$options = options
 
@@ -9,11 +10,12 @@ class lVueRouter {
     const initial = window.location.hash.slice(1) || '/'
     LVue.util.defineReactive(this, 'current', initial)
 
-    this.current = '/'
+    // this.current = '/'
 
     // 监听事件：
-    window.addEventListener('hashchange', this.onHashChange.bind(this))
+    window.addEventListener('hashchange', this.onHashChange.bind(this)) // 通过 bind 将这个函数绑定到 lVueRouter 这个实例上面
     window.addEventListener('load', this.onHashChange.bind(this))
+
 
     
     // 缓存一下路由的映射关系：
@@ -25,6 +27,7 @@ class lVueRouter {
   }
 
   onHashChange() {
+    // console.log(this); 如果不绑定 this，那么这里的 this 就会变成 window
     this.current = window.location.hash.slice(1)
   }
 

@@ -125,7 +125,7 @@ this.$children 只有自定义组件，但是 this.$refs 既可以有自定义�
 
 
 ##### $attrs/$listeners:
-包含了父组件域种不作为 prop 被识别（且获取）的特性绑定（class和style除外）。当一个组件没有声明任何 prop 时，这里会包含所有父作用域的绑定（class和style除外），并且可以通过**v-bind="$attrs" 传入内部组件----在创建高级别的组件时非常有用。**
+包含了父组件域中不作为 prop 被识别（且获取）的特性绑定（class和style除外）。当一个组件没有声明任何 prop 时，这里会包含所有父作用域的绑定（class和style除外），并且可以通过**v-bind="$attrs" 传入内部组件----在创建高级别的组件时非常有用。**
 ```js
 // child: 并未在 props 中声明 foo
 <p>{{$attrs.foo}}</p>
