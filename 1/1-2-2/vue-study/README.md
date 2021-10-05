@@ -170,10 +170,19 @@ this.$options.routes.forEach(route => {
   this.routeMap[route.path] = route
 })
 ```
-如何将 current 转换成响应式数据：
+如何将 current 转换成响应式数据：！！！
 ```js
 // 通过源码里的隐藏API设置current为响应式
 LVue.util.defineReactive(this, 'current', initial)
+```
+详解：
+这个方法适合给一个对象定义一个响应式的属性！！！
+```js
+Vue.util.defineReactive(obj,key,value,fn)  
+// obj: 目标对象
+// key: 目标对象属性
+// value: 属性值
+// fn: 只在node调试环境下set时调用
 ```
 
 ## vuex：
@@ -200,7 +209,31 @@ export default new Vuex.Store({
 ### 状态变更 - mutations
 mutations 用于修改状态，store.js
 ```js
+mutations: {
+  add(state) {
+    state.count++;
+  }
+}
 ```
+### actions
+执行异步的方法
+```js
+mutations: {
+  add({commit}) {
+    setTimeOut(() => {
+      state.count++;
+    }, 1000);
+  }
+}
+```
+
+#### 问题思考：？
+- Vue.Store中的state是响应式的？怎么才能做到响应式
+  答：通过 Vue 中的 data 实现响应式
+- mutations里面add的参数state是怎么来的？
+  答：state 是 vuex 构造函数实现 commit 方法时最后传进去的，其实质就是做过响应式处理的 state
+- actions里面add的参数commit是那里来的？
+  答：是 vuex 构造函数实现 dispatch 方法时最后传进去的 store 实例，因此可以从里面结构出 commit 方法
 
 ## vuex 原理解析：
 ### 任务：
@@ -208,10 +241,88 @@ mutations 用于修改状态，store.js
   - 挂载
   - 声明 Store 类
     - 响应式 state 状态
-    - commit() 可以修改 state
+    - commit() 可以同步修改 state
     - dispatch() 可以异步修改 state
     - getters？
     
+### 开始操作：
+#### state实现响应式：
+由Vuex的API使用方式我们知道，在使用Vuex的时候会往Store构造函数里面传state mutations actions 等等，所以需要Store里面的constructor的参数options接收他们，所以在options里面就可以拿到传过来的state，然后对state进行响应式的操作，如何进行响应式操作？在vue-router中用的是 `Vue.util.defineReactive()` 该方法适合给一个对象的某个属性设置成响应式，这里对state的响应式处理采用*借鸡生蛋*的方式。
+###### 何为借鸡生蛋？
+都知道Vue中的data里面的数据都是响应式的，那么在这里引入Vue的构造函数然后调用data方法，把state放入data中，那么state自然就变成响应式的了。这种想法很妙！
+
+见代码：
+```js
+// 响应式的state
+this.state = new LVue({
+  data：options.state
+})
+```
+上面的代码虽然响应式已经体现了，但是代码写的不是很安全，上面的写法会将state直接暴露给外边，这样就不太安全。
+
+改进：
+```js
+// 把state进行隐藏
+this._vm = new LVue({
+  data: {
+    // 加两层 $$ ,Vue中的代理属性就会消失
+    $$data: options.state
+  }
+})
+
+// 访问时进行操作
+get state () {
+  // 变成只读的属性
+  return this._vm._data.$$data
+}
+
+// 当外界想直接 this.$store.state 进行修改state时就会报错,这样就提高了一定的安全性
+set state(v) {
+  console.error('please use replaceState to reset state');
+}
+```
+
+#### 实现 commit 方法:
+```js
+// 在 constructor 中对 mutations 进行一个缓存
+this._mutations = options.mutations
+
+
+// commit(type, payload): 执行 mutation 修改状态
+commit(type, payload) {
+  // 根据 type ，获取对应的 mutations 
+  const entry = this._mutations[type]
+  if (!entry) {
+    console.error('unknown mutaition type');
+    return
+  }
+  // this.state 就是 constructor 里面的响应式数据 state
+  entry(this.state, payload)
+}
+```
+这样写就符合在使用 commit 时第一个参数是调用的函数名,第二个参数是传过去的参数.
+
+#### 实现 dispatch 方法：
+```js
+// constructor 里面进行 this 绑定，绑定this到store实例，确保不出问题
+const store = this
+this.commit = this.commit.bind(store)
+
+
+dispatch(type, payload) {
+  console.log(payload);
+  const entry = this._actions[type]
+  if (!entry) {
+    console.error('unknown action type');
+    return
+  }
+  // 如果是 Promise 就要返回一个 Promise 的操作，因此要 return 一下
+  return entry(this, payload)
+}
+```
+看似跟 commit 差不多，实则细节慢慢
+- 细节点一：将 `entry()` 函数返回，因为要在 dispatch 里面执行异步操作，如果异步是 Promise 那么就需要将 Promise 返回，因此将 `entry()` 函数返回
+- `entry()` 里面参数 this 问题，在 actions 里面方法会接收一个上下文对象，也就是store的实例，这样可以从中结构出store的一些方法，如：commit 等，但是如果不进行绑定那么当 this 在actions 里面的一些方法中执行时可能无形中修改 this 的执行，这样就出BUG，因此在 constructor 进行进行 this 绑定很重要！
 
 
 

@@ -15,12 +15,12 @@ export default new Vuex.Store({
   },
   actions: {
     // 参数怎么来的？
-    // add({ commit }) {
-    //   // 业务逻辑组合或者异步
-    //   setTimeout(() => {
-    //     commit('add')
-    //   }, 1000);
-    // }
+    add({ commit }) {
+      // 业务逻辑组合或者异步
+      setTimeout(() => {
+        commit('add')
+      }, 1000);
+    }
   },
   // modules: {
   // }

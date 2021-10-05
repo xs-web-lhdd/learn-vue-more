@@ -20,6 +20,14 @@ class Store {
     // 绑定this到store实例，确保不出问题
     const store = this
     this.commit = this.commit.bind(store)
+// 源码写法：--- 原理就是将 this 绑定到store实例上，防止后面传this的时候因作用域的情况出BUG，意思跟上面代码意思相同
+    // const { commit, action } = store
+    // this.commit = function boundCommit (type, payload) {
+    //   return commit.call(store, type, payload)
+    // }
+    // this.action = function boundCommit (type, payload) {
+    //   return action.call(store, type, payload)
+    // }
   }
   get state () {
     return this._vm._data.$$data
@@ -32,7 +40,6 @@ class Store {
 
   // commit(type, payload): 执行 mutation 修改状态
   commit(type, payload) {
-    console.log(type);
     // 根据 type ，获取对应的 mutations 
     const entry = this._mutations[type]
     if (!entry) {
@@ -44,24 +51,25 @@ class Store {
 
   // dispatch(type, payload)
   dispatch(type, payload) {
-    console.log(payload);
     const entry = this._actions[type]
     if (!entry) {
       console.error('unknown action type');
       return
     }
-    return entry()
+    // 如果是 Promise 就要返回一个 Promise 的操作，因此要 return 一下
+    return entry(this, payload)
   }
 
 }
 
-
+// 实现插件
 function install (Vue) {
   LVue = Vue
 
   // 混入
   Vue.mixin({
     beforeCreate() {
+      // this.$options.store 是 main.js 里面 new Vue({}) 传进去的参数
       if (this.$options.store) {
         Vue.prototype.$store = this.$options.store
       }

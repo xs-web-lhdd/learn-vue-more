@@ -3,7 +3,7 @@
     <h1>{{ msg }}</h1>
     <!-- $store是哪来的 -->
     <p @click="$store.commit('add')">sync {{$store.state.counter}}</p>
-    <!-- <p @click="$store.dispatch('add')">async {{$store.state.counter}}</p> -->
+    <p @click="$store.dispatch('add')">async {{$store.state.counter}}</p>
   </div>
 </template>
 
