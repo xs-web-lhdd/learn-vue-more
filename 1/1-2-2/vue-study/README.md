@@ -324,6 +324,10 @@ dispatch(type, payload) {
 - 细节点一：将 `entry()` 函数返回，因为要在 dispatch 里面执行异步操作，如果异步是 Promise 那么就需要将 Promise 返回，因此将 `entry()` 函数返回
 - `entry()` 里面参数 this 问题，在 actions 里面方法会接收一个上下文对象，也就是store的实例，这样可以从中结构出store的一些方法，如：commit 等，但是如果不进行绑定那么当 this 在actions 里面的一些方法中执行时可能无形中修改 this 的执行，这样就出BUG，因此在 constructor 进行进行 this 绑定很重要！
 
+##### 思考题：
+1、嵌套路由
+- router-view 深度标记
+- 路由匹配时获取代表深度层级的 matched 数组
 
 
 

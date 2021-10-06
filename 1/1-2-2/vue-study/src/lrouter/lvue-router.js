@@ -1,3 +1,5 @@
+import Vue from "vue"
+
 let LVue
 // 插件
 // 1、实现一个 install 方法
@@ -8,7 +10,12 @@ class lVueRouter {
 
     // 响应式数据：
     const initial = window.location.hash.slice(1) || '/'
-    LVue.util.defineReactive(this, 'current', initial)
+    LVue.util.defineReactive(this, 'currentOne', initial)
+    this.current = window.location.hash.slice(1) || '/'
+    Vue.util.defineReactive(this, 'matched', [])
+    // match 方法可以递归的遍历路由表，获得匹配关系
+    this.match()
+
 
     // this.current = '/'
 
@@ -29,6 +36,30 @@ class lVueRouter {
   onHashChange() {
     // console.log(this); 如果不绑定 this，那么这里的 this 就会变成 window
     this.current = window.location.hash.slice(1)
+
+    this.matched = []
+    this.match()
+  }
+
+  match(routes) {
+    routes = routes || this.$options.routes
+    
+    // 递归遍历
+    for (const route of routes) {
+      // 一般不会在 / 路由那里配嵌套，如果配嵌套那么所有路由就会失效
+      if (this.current == '/' && route.path == '/') {
+        this.matched.push(route)
+        return
+      }
+      // /about/info
+      if (route.path !== '/' && this.current.indexOf(route.path) !== -1) {
+        this.matched.push(route)
+        if (route.children) {
+          this.match(route.children)
+        }
+        return
+      }
+    }
   }
 
 }
@@ -82,11 +113,36 @@ lVueRouter.install = function(Vue) {
       // const route = routes.find(item => item.path === current)
       // const comp = route ? route.component : null
       
+      // 标记当前router-view深度：
+      this.$vnode.data.routerView = true;
+
+      let depth = 0;
+      let parent = this.$parent;
+      while(parent) {
+        const vnodeData = parent.$vnode ?. data;
+        if (vnodeData) {
+          if (vnodeData.routerView) {
+            // 说明当前 parent 是一个 router-view
+            depth++;
+          }
+        }
 
 
-      const  { routeMap, current } = this.$router
-      const comp = routeMap[current] ? routeMap[current].component : null
-      return h(comp)
+        parent = parent.$parent;
+      }
+
+
+      // const  { routeMap, current } = this.$router
+      // const comp = routeMap[current] ? routeMap[current].component : null
+
+      // 获取path对应的component
+      let component = null;
+      const route = this.$router.matched[depth];
+      if (route) {
+        component = route
+      }
+
+      return h(component)
     }
   })
 }

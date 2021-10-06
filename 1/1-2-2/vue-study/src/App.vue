@@ -8,6 +8,14 @@
   </div>
 </template>
 
+<script>
+export default {
+  mounted() {
+    console.log(this.$router);
+  }
+}
+</script>
+
 <style>
 #app {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
