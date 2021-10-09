@@ -59,6 +59,8 @@ class LVue {
 
     this.$data = options.data
 
+    this.$methods = options.methods
+
     // 响应化处理
     observe(this.$data)
 
@@ -139,8 +141,27 @@ class Compile {
         const dir = attrName.split('-')[1] // xxx
         // 执行指令
         this[dir] && this[dir](node, exp)
+      } else if (this.isEvent(attrName)) {
+        // console.log('这是事件，执行事件');
+        const dir = attrName.split('@')[1];
+        this.eventHandler(node, exp, dir)
       }
     })
+  }
+
+  // 判断是不是事件：
+  isEvent(attrName) {
+    return attrName.indexOf('@') === 0 || attrName.indexOf('l-on:') === 0
+  }
+
+  // 事件处理函数：
+  eventHandler(node, exp, dir) {
+    // 从 methods 里面拿到对应的方法：
+    const fn = this.$vm.$methods ? this.$vm.$methods[exp] : null
+    if (!fn) {
+      console.error('不存在此方法！！！');
+    }
+    node.addEventListener(dir, fn.bind(this.$vm)) // 注意细节：this 指向问题
   }
 
   // 插值表达式的编译 --- 将插值表达式编译成真正的dom中的内容
