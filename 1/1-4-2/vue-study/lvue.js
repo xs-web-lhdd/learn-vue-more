@@ -149,6 +149,7 @@ class Compile {
     })
   }
 
+// 事件处理：
   // 判断是不是事件：
   isEvent(attrName) {
     return attrName.indexOf('@') === 0 || attrName.indexOf('l-on:') === 0
@@ -159,7 +160,8 @@ class Compile {
     // 从 methods 里面拿到对应的方法：
     const fn = this.$vm.$methods ? this.$vm.$methods[exp] : null
     if (!fn) {
-      console.error('不存在此方法！！！');
+      console.error(`不存在${exp}方法！！！`);
+      return
     }
     node.addEventListener(dir, fn.bind(this.$vm)) // 注意细节：this 指向问题
   }
@@ -170,6 +172,17 @@ class Compile {
     // node.textContent = this.$vm[RegExp.$1]
     // 设置为响应式
     this.update(node, RegExp.$1, 'text')
+  }
+
+// 双向绑定：l-model="xxx"
+  model(node, exp) {
+    // update方法：只完成赋值和更新
+    this.update(node, exp, 'model')
+    // 事件监听
+    node.addEventListener('input', e => {
+      // 新的值赋给数据即可
+      this.$vm[exp] = e.target.value
+    })
   }
 
 // 定义的指令:
@@ -195,6 +208,11 @@ class Compile {
     new Watcher(this.$vm, exp, function(val) {
       fn && fn(node, val)
     })
+  }
+
+  modelUpdater(node, value) {
+    // 表单元素赋值
+    node.value = value
   }
   
   textUpdater(node, value) {

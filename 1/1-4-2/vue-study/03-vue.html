@@ -11,7 +11,7 @@
     <p @click="add">{{counter}}</p>
     <p l-text="counter"></p>
     <p l-html="desc"></p>
-    <!-- <input type="text" k-model="desc"> -->
+    <input @input="input" type="text" l-model="desc">
   </div>
 
   <script src="lvue.js"></script>
@@ -27,6 +27,9 @@
         add() {
           // console.log(this);
           this.counter++
+        },
+        input() {
+          console.log('这是input定义的方法');
         }
       },
     })
