@@ -92,6 +92,7 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
 ```js
   // Runtime+compiler development build (Browser)
   'web-full-dev': {
+    // 携带编译器的入口文件：
     entry: resolve('web/entry-runtime-with-compiler.js'),
     dest: resolve('dist/vue.js'),
     format: 'umd',
@@ -108,7 +109,7 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
 - new Vue()
   - _init()
 - $mount()
-  - mountComponent()
+  - mountComponent()  ---  挂载的执行
     - updateComponent()
       - render()
       - update()
@@ -194,26 +195,27 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
 **platforms/web/entry-runtime-with-compiler.js**:（这个是入口文件）
 
 - 扩展 $mount
-- 处理 el、template 等选项
+- 处理 el、template 等选项，里面有编译
 
 **platforms\web\runtime\index.js**：
 
 - 安装 web 平台特有的指令和组件
 
 - 定义 \__patch__：补丁函数，执行 patching 算法进行更新
-- 定义 $mount 这个方法（具体作用：实现挂载）：挂载vue实例到指定的宿主元素（获得dom并替换宿主元素）
+- 定义 $mount 这个方法（具体作用：实现挂载）：挂载vue实例到指定的宿主元素（获得dom并替换宿主元素），具体方法是 - mountComponent()
 
 **src\core\index.js**：
 
-- 初始化全局API
+- 初始化全局API --- `initGlobalAPI(Vue)`
 
-  - 例：进入`initGlobalAPI(Vue)`这个文件里面在37行就能找到之前用的Vue隐藏响应式API：`Vue.util.defineReactive`这个函数，文件位置：**src\core\global-api\index.js**
-  - 在`initGlobalAPI(Vue)`中找到`initUse(Vue)`然后进入**src\core\global-api\use.js**就能找到Vue中插件的使用Vue.use这个静态方法：
+  - 例：进入`initGlobalAPI(Vue)`这个文件里面在37行就能找到之前用的Vue隐藏响应式API：`Vue.util.defineReactive`这个函数，文件位置：**src\core\global-api\index.js**，里面还有熟悉的 `Vue.set`,`Vue.del`,`Vue.nextTick`等方法
+  - 例：在`initGlobalAPI(Vue)`中找到`initUse(Vue)`然后进入**src\core\global-api\use.js**就能找到Vue中插件的使用Vue.use这个静态方法：
 
   ```js
   import { toArray } from '../util/index'
   
   export function initUse (Vue: GlobalAPI) {
+    // 插件的具体的实现函数：
     Vue.use = function (plugin: Function | Object) {
       const installedPlugins = (this._installedPlugins || (this._installedPlugins = []))
       if (installedPlugins.indexOf(plugin) > -1) {
@@ -221,9 +223,12 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
       }
   
       // additional parameters
+      // 平常的写法： Vue.use(MyPlugin, arg1, arg2, ....)
+      // 平常写的时候传一个 class，class 本身就是一个函数
       const args = toArray(arguments, 1)
     	// 在参数前面追加 Vue 的实例，这样就明白了为什么在使用install方法时第一个参数是Vue的实例
       args.unshift(this)
+      // 判断传进来的插件有没有install这个方法，如果有直接执行，如果没有直接执行插件这个方法
       if (typeof plugin.install === 'function') {
         plugin.install.apply(plugin, args)
       } else if (typeof plugin === 'function') {
@@ -234,26 +239,28 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
     }
   }
   ```
-
+  
   **src\core\instance\index.js**：
-
-  - 作用1：实现Vue构造函数
-  - 作用2：实现vue实例方法
-
+  
+  - 作用1：实现Vue构造函数 --- line：8
+  - 作用2：实现vue实例方法的初始化 --- line：17-22
+  
   这个里面的 Vue 是真正的构造函数，执行实例方法的初始化：
-
+  
   ```js
-  // 实现构造函数：
+  // 实现真正的 Vue 构造函数：
   function Vue (options) {
     if (process.env.NODE_ENV !== 'production' &&
       !(this instanceof Vue)
     ) {
       warn('Vue is a constructor and should be called with the `new` keyword')
     }
+    // 这个 _init 方法是那里来的？  
     this._init(options)
+    // 是通过下面的 initMixin 实现混入的
   }
   
-  // 混入 _init()
+  // 混入 _init()，上面 Vue 方法中的 this._init 就是在这里面实现的
   initMixin(Vue)
   // 实现和状态相关的 $set/$delete/$watch 这些方法
   stateMixin(Vue)
@@ -264,7 +271,7 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
   // 和渲染相关的方法：$nextTick、_render
   renderMixin(Vue)
   ```
-
+  
   - `initMixin(Vue)`核心代码：
     - 初始化过程：组件属性、事件等初始化、两个生命周期钩子、数据的响应式
 
@@ -274,12 +281,12 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
     initLifecycle(vm) // $parent/$root(祖宗已经有了) /$children(已经初始化了但是空的)
     initEvents(vm) // 一些事件的监听
     initRender(vm) // 插槽/$createElement
-    // 组件创建之前的钩子:
+    // 组件创建之前的钩子: 在这里面能够访问的东西很有限，可以在这里面弄一些数据，但是这些数据都不是响应式的
     callHook(vm, 'beforeCreate')
     initInjections(vm) // 注入祖辈传递的数据
     initState(vm) // 重要:组件数据的初始化---包括 props data methods computed watch
     initProvide(vm) // 把数据给子代
-    callHook(vm, 'created')
+    callHook(vm, 'created') // 组件创建后的钩子
 
     /* istanbul ignore if */
     if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
@@ -295,7 +302,7 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
 
 问：
 
-- 为什么先 `initInjections(vm)` 再 `initProvide(vm)`？因为需要先继承父辈传递过来的数据这时才能把数据给后代
+- 为什么先 `initInjections(vm)` 再 `initProvide(vm)`？因为从父辈继承过来的数据可能会传递给子代，所以需要先`initInjections`后`initProvide`
 - 为什么vue在使用时数据要在`created` 或者`mounted`钩子函数中进行操作？因为在这阶段中数据已经初始化完毕了可以对数据进行操作
 - 为什么用户设置**el**选项后不需要手动调用$mount也能挂载到实例上？因为vue会自行判断如果有el就自动调用$mount因此无需调用也能挂载到实例上面
 
@@ -303,11 +310,11 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
 
 **-** **mountComponent**
 
-执行挂载，获取vdom并转换为dom
+执行挂载，获取vdom并转换为dom，src\core\instance\lifecycle.js
 
 **-** **new Watcher()**
 
-创建组件渲染watcher
+创建组件渲染watcher，src\core\instance\lifecycle.js
 
 **-** **updateComponent()**
 
@@ -315,11 +322,11 @@ dev脚本中`-c scripts/config.js`指明配置文件所在
 
 **-** **update()**
 
-初始化或更新，将传入vdom转换为dom，初始化时执行的是dom创建操作
+初始化或更新，将传入vdom转换为dom，初始化时执行的是dom创建操作，src\core\instance\lifecycle.js
 
-**-** **render() src/core/instance/render.js**
+**-** **render()**
 
-渲染组件，获取vdom
+渲染组件，获取vdom，src/core/instance/render.js
 
 
 
@@ -345,3 +352,8 @@ new Watcher() => updateComponent() => render() => _update()
 >  - updated：数值变化已经作用域dom，可以获取dom最新状态
 >  - destroyed：组件实例已经销毁，适合取消定时器等操作
 
+### 数据响应式：
+
+​	数据响应式是MVVM框架的一大特点，通过某种策略可以感知数据的变化。Vue中利用JS语言特性`Object.defineProperty()`，通过定义对象属性 getter/setter 拦截对属性的访问。
+
+​	具体实现是在Vue初始化时，会调用initState，它会初始化data，props等，这里着重关注data初始化。
