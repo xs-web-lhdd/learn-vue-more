@@ -357,3 +357,78 @@ new Watcher() => updateComponent() => render() => _update()
 ​	数据响应式是MVVM框架的一大特点，通过某种策略可以感知数据的变化。Vue中利用JS语言特性`Object.defineProperty()`，通过定义对象属性 getter/setter 拦截对属性的访问。
 
 ​	具体实现是在Vue初始化时，会调用initState，它会初始化data，props等，这里着重关注data初始化。
+
+#### 整体流程：
+
+**initState  src/core/instance/state.js**
+
+初始化数据，包括 props、methods、data、computed和watch
+
+
+
+**initData核心代码是将data数据响应式**
+
+```js
+function initData (vm: Component) {
+    // 执行数据相应化
+    observe(data, true /* asRootData */)
+}
+```
+
+**core/observer/index.js**
+
+observe方法返回一个Observer实例
+
+
+
+**core/observer/index.js**
+
+Observer对象根据数据类型执行对应的相应化操作
+
+defineReactive定义对象属性的getter/setter，getter负责添加依赖，setter负责通知更新
+
+
+
+**core/observer/index.js**
+
+Dep负责管理一组Watcher，包括watcher实例的增删及通知更新
+
+
+
+**Watcher**
+
+Watcher解析一个表达式并收集依赖，当数值变化时触发回调函数，常用于$watch API和指令中。
+
+每个组件也会有相应的Watcher，数值变化会触发其update函数导致重新渲染
+
+```js
+export default class watcher {
+    constructor () {}
+    get () {}
+    addDep (dep: Dep) {}
+    update () {}
+}
+```
+
+#### 数组响应化
+
+​	数组数据变化的侦测跟对象不同，我们操作数组通常使用push、pop、splice等方法，此时没有办法得知数据变化。所以vue中采取的策略是拦截这些方法并通知dep。
+
+
+
+**src/core/observer/array.js**
+
+为数组原型中的7个可以改变内容的方法定义拦截器
+
+
+
+##### Observer中覆盖数组原型
+
+```js
+if (Array.isArray(value)) {
+    // 替换数组原型
+    protoAugment(value, arrayMethods) // value.__proto__ = arrayMethods
+    this.observeArray(value)
+}
+```
+
