@@ -25,6 +25,34 @@ https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/?utm_source
 
 #### vue中的具体实现：
 
+- 异步：只要侦听到数据变化，Vue将开启一个队列，并缓冲在同一事件循环中发生的所有数据变更。
+- 批量：如果同一个watcher被多次触发，只会被推入到队列中一次。去重对于避免不必要的计算和DOM操作时非常重要的。然后，在下一个事件循环"tick"中，Vue刷新队列执行实际工作。
+- 异步策略：Vue在内部对异步队列尝试使用原生的`Promise.then`、`MutationObserver`或`setImmediate`，如果执行环境都不支持，则会采用`setTimeOut`代替。
+
+##### update()  core/observer/watcher.js
+
+dep.notify() 之后 watcher 执行更新，执行入队操作
+
+
+
+##### queueWatcher(watcher)  core/observer/scheduler.js
+
+执行watcher入队操作
+
+
+
+##### nextTick(flushSchedulerQueue)  core/util/next-tick.js
+
+nextTick按照特定异步策略执行队列操作
+
+
+
+测试代码：03-timerFunc.html
+
+> 研究：vm.$nextTick(cb)
+
+#### 虚拟DOM：
+
 ##### 概念：
 
 虚拟 DOM 是对DOM的JS抽象表示，它们是**JS对象**，能够描述DOM结构和关系。应用的各种状态变化会用于虚拟DOM，最终映射到DOM上。
@@ -35,7 +63,29 @@ https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/?utm_source
 
 vue中虚拟dom基于snabbdom实现，安装snabbdom并体验
 
+#### 优点：
 
+- 虚拟DOM轻量、快速：当它们发生变化时通过新旧虚拟DOM比对可以得到最小DOM操作量，配合异步更新策略减少刷新频率，从而提升性能
+
+  ```js
+  patch(vnode, h('div', obj.foo))
+  ```
+
+- 跨平台：将虚拟dom更新转换为不同运行时特殊操作实现跨平台
+
+  ```html
+  <script>
+      // 增加style模块
+      const patch = init([snabbdom_style.default])
+      
+      function render() {
+          // 添加节点样式描述
+          return h('div', { style: { color: 'red' } }, obj.foo)
+      }
+  </script>
+  ```
+
+- 兼容性：还可以加入兼容性代码增强操作的兼容性
 
 #### 必要性：
 
@@ -85,6 +135,10 @@ Vue.prototype.__patch__ = inBrowser ? patch : noop
 
 patch是createPatchFunction的返回值，传递nodeOps和modules是web平台特别实现
 
+> nodeOps：是web平台对节点的所有操作：创建、插入、删除节点等。
+>
+> modules：是对所有特性的操作。
+
 ```js
 export const patch: Function = createPatchFunction({ nodeOps, modules })
 ```
@@ -119,6 +173,8 @@ watcher.run() => componentUpdate() => render() => update() => patch()
 
 ![](https://i.loli.net/2021/10/16/2SsDa15MKqrB3zh.png)
 
+进行同层比较（为了降低时间复杂度）
+
 ##### patchVnode
 
 比较两个VNode，包括三种类型操作：**属性更新、文本更新、子节点更新**
@@ -148,15 +204,15 @@ watcher.run() => componentUpdate() => render() => update() => patch()
 
 ##### updateChildren：
 
-updateChildren主要作用是一种较高效的方式比对新旧两个VNode的children得出最小操作补丁。执行一个双循环是传统方式，vue中针对web场景特点做了特别的算法优化，我们看图说话：
+updateChildren主要作用是一种较高效的方式比对新旧两个VNode的children得出最小操作补丁。执行一个双循环是传统方式（时间复杂度太高），vue中针对web场景特点做了特别的算法优化，我们看图说话：
 
 ![](https://i.loli.net/2021/10/16/7aI3cbDxKBkWg19.png)
 
-在新老两组VNode节点的左右头尾两侧都有一个变量标记，在遍历过程中这几个变量都会向中间靠拢。当oldStartIdx > oldEndIdx时结束循环。
+在新老两组VNode节点的左右头尾两侧都有一个变量标记，在**遍历过程中这几个变量都会向中间靠拢**。当**oldStartIdx > oldEndIdx**或者**newStartIdx > newEndIdx**时结束循环。
 
 下面是遍历规则：
 
-​	首先，oldStartVnode、oldEndVnode和newStartVnode、newEndVnode**两两交叉比较，共有4种比较方法。**当oldStartVnode和newStartVnode或者oldEndVnode和newEndVnode满足sameVnode，直接将该VNode节点进行patchVnode即可，不需要再遍历就完成了一次循环。如下图：
+​	首先，oldStartVnode、oldEndVnode与newStartVnode、newEndVnode**两两交叉比较，共有4种比较方法。**当oldStartVnode和newStartVnode或者oldEndVnode和newEndVnode满足sameVnode，直接将该VNode节点进行patchVnode即可，不需要再遍历就完成了一次循环。如下图：
 
 ![](https://i.loli.net/2021/10/16/YlUMFNHTuBRGZ64.png)
 
@@ -187,6 +243,73 @@ updateChildren主要作用是一种较高效的方式比对新旧两个VNode的c
 但是，当结束时newStartIdx > newEndIdx时，说明新的VNode节点已经遍历完了，但是老的节点还有剩余，需要从文档中删除节点。
 
 ![](https://i.loli.net/2021/10/16/1bZCdYvsJg6noEH.png)
+
+> 测试用例：04-vdom2.html
+
+##### 论循环中key的重要性：
+
+```js
+  <script>
+    // 创建实例
+    const app = new Vue({
+      el: '#demo',
+      data: {
+        arr: ['a', 'b', 'c', 'd']
+      },
+      mounted() {
+        setTimeout(() => {
+          this.arr.splice(2, 0, 'e')
+        }, 1000)
+      }
+    })
+  </script>
+```
+
+```js
+      // 有 key 的更新过程：
+
+      // a b c d
+      // a b e c d
+
+      // b c d
+      // b e c d
+
+      // c d
+      // e c d
+
+      // c
+      // e c
+
+      // null
+      // e  
+      // 创建一次插入就行
+
+
+      // 不使用key：undefined === undefined
+      // 如果不设置key，那么key就相当于是undefined，那么两个undefined就是true，那么无论两个节点是否是同一个节点都会被vue判别为两个相同节点
+
+      // a b c d
+      // a b e c d
+
+      // b c d
+      // b e c d
+
+      // c d
+      // e c d
+      // 执行一次更新：因为没有设置key，会导致vue把e中的东西全部强行更新到c中，这样就会造成性能损耗（做了大量的dom操作）
+
+      // d
+      // c d
+      // 又执行一次更新：因为没有设置key，会导致vue把c中的东西全部强行更新到d中，这样就会造成性能损耗（做了大量的dom操作）
+
+      // null
+      // d 插入
+      // 创建一次，更新两次
+
+      // 这个没有key的和有key的一对比就会发现vue中多做了两次更新 --- 如果列表更长那么这样做就是毁灭性的打击
+```
+
+通过上面过程的捋顺也就明白了不设置key的弊端和vue中为什么不建议用index做key
 
 ##### 思考？：
 
