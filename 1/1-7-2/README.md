@@ -98,3 +98,95 @@ Vue 2.0 需要利用到VNode描述视图以及各种交互，手写显然不切�
 代码实现，**src/compiler/optimizer.js - optimize**
 
 标记结束
+
+##### 代码生成 - generate
+
+将AST转换成渲染函数中的内容，即代码字符串。
+
+generate方法生成渲染函数代码，**src/compiler/codegen/index.js**
+
+> 生成的code长这样
+>
+> ```js
+> `_c('div',{attrs:{"id:"demo}},[
+> 	_c('h1',[_v("Vue.js测试")]),
+> 	_c('p',[_v(_s(foo))])
+> ])`
+> ```
+
+#### 典型指令实现：v-if、v-for
+
+着重观察几个结构性指令的解析过程
+
+
+
+解析v-if：**parser/index.js**
+
+processlf用于处理v-if解析
+
+
+
+解析结果：
+
+代码生成，**codegen/index.js**
+
+genlfConditions等用于生成条件语句相关代码
+
+生成结果：
+
+```js
+"with(this){return _c('div',{attrs:{"id":"demo"}},[
+	(foo) ? _c('h1',[_v(_s(foo))]) : _c('h1', [_v('no title')]),
+    _v(' '), _c('abc')
+], 1)}"
+```
+
+解析v-for：**parser/index.js**
+
+processFor用于处理v-for指令
+
+解析结果：v-for="item in items" for:"items" alias:'item'
+
+
+
+代码生成，**src/compiler/codegen/index.js**
+
+genFor用于生成相应代码
+
+
+
+生成结果：
+
+```js
+"with(this){return _c('div',{attrs:{"id":"demo"}},[_m(0),_v(" "),(foo)?_c('p',[_v(_s(foo))]):_e(),_v(" "),
+_l((arr), function(s) {return _c('b',{key:s},[_v(_s(s))])})
+,_v(" "),_c('comp')],2)}"
+```
+
+> v-if，v-for这些指令只能在编译器阶段处理，如果我们要在render函数处理条件或循环只能使用if和for
+>
+> ```js
+> Vue.component('comp', {
+>     props: ['foo'],
+>     render(h) {
+>       if(this.foo == 'foo') {
+> 		return h('div','foo')
+>       }
+>       return h('div', 'bar')
+>     }
+> })
+> ```
+
+### 组件化机制：
+
+#### 组件声明：Vue.component()
+
+initAssetRegister(Vue)`src/core/global-api/assets.js`
+
+组件注册使用extend()方法将配置转换为构造函数并添加到components选项
+
+
+
+#### 组件实例创建及挂载
+
+观察生成的渲染函数
