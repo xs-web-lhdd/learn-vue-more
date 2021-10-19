@@ -62,7 +62,13 @@ Vue 2.0 需要利用到VNode描述视图以及各种交互，手写显然不切�
 
 ##### 编译过程
 
-编译分为三步：解析、优化和生成，**src/compiler/index.js**
+编译分为三步：解析、优化和生成，**src/compiler/index.js - 真真正正执行编译**
+
+> 1、解析：src\compiler\index.js 里面的parse，把字符串解析为抽象语法树AST。
+>
+> 2、优化：src\compiler\index.js 里面的optimize，将模板中静态语句进行标记，那么在更新时就可以跳过比对，提升性能。
+>
+> 3、代码生成：src\compiler\index.js 里面的generate方法，new 一个函数，然后把生成的代码传进去作为参数 => new Function(code)
 
 测试代码：06-1-compiler.html
 
@@ -78,15 +84,15 @@ Vue 2.0 需要利用到VNode描述视图以及各种交互，手写显然不切�
 
 调试查看得到的AST，**/src/compiler/parser/index.js**，结构如下：
 
-解析器内部分**HTML解析器、文本解析器和过滤解析器**，最主要是HTML解析器
+![](https://i.loli.net/2021/10/19/DehTauWm2sFNnYd.png)
+
+解析器内部分**HTML解析器、文本解析器和过滤解析器**，最主要是HTML解析器，三个方法都在src/compiler/parse文件夹里面
 
 
 
 ##### 优化 - optimize
 
 优化器的作用是在AST中找出静态子树并打上标记。静态子树是在AST中永远不变的节点，如纯文本节点。
-
-
 
 标记静态子树的好处：
 
@@ -97,7 +103,11 @@ Vue 2.0 需要利用到VNode描述视图以及各种交互，手写显然不切�
 
 代码实现，**src/compiler/optimizer.js - optimize**
 
-标记结束
+标记结束：
+
+![](https://i.loli.net/2021/10/19/t8lY9kaGUI5xgr1.png)
+
+> 注：只有静态节点里面嵌套静态节点才会被标记，也就是最少两层静态节点才会被标记为静态节点！因为 Vue 认为只有一层的静态节点被标记然后转化为静态函数这个过程是得不偿失的，所以最少需要静态节点里面再嵌套一层静态节点！
 
 ##### 代码生成 - generate
 
