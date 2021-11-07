@@ -156,7 +156,7 @@ rs2.pipe(ws2)
 const { url, method, headers } = request
 
 else if (method === 'GET' && heraders.accept.indexOf('image/*') !== -1) {
-    fs.createReadStreame('.'+url).pipe(response)
+    fs.createReadStream('.'+url).pipe(response)
 }
 ```
 
