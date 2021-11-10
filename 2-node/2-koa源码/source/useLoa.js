@@ -8,6 +8,8 @@ const app = new Loa()
 
 app.use(ctx => {
   ctx.body = 'ha ha ha'
+}, ctx => {
+  console.log(111);
 })
 
 app.listen(3000, () => {

@@ -9,13 +9,19 @@ const request = require('./request')
 const response = require('./response')
 
 class Loa {
+  constructor() {
+    this.middlewares = []
+  }
   listen(...args) {
     // 创建 http 服务
     const server = http.createServer((req, res) => {
       // 创建上下文
       let ctx = this.createContext(req, res)
 
-      this.callback(ctx)
+      // 合成
+      const fn = this.compose(this.middlewares)
+      fn(ctx)
+      // this.callback(ctx)
       // this.callback(req, res)
 
       // 数据响应
@@ -24,8 +30,13 @@ class Loa {
     // 启动监听
     server.listen(...args)
   }
-  use(callback) {
-    this.callback = callback
+
+  // 不止输入一个 callback 函数
+  // use(callback) {
+  //   this.callback = callback
+  // }
+  use(middlewares) {
+    this.middlewares.push(middlewares)
   }
 
   /**
@@ -44,6 +55,31 @@ class Loa {
     ctx.res = ctx.response.res = res
 
     return ctx
+  }
+
+  /**
+   * 合成函数
+   * @param {*} middlewares 
+   * @returns 
+   */
+  compose (middlewares) {
+    return function (ctx) {
+      return dispatch(0)
+      function dispatch(i) {
+        let fn = middlewares[i]
+        if (!fn) {
+          // 空的
+          return Promise.resolve()
+        }
+        return Promise.resolve(
+          fn(
+            ctx, function next() {
+              return dispatch(i + 1)
+            }
+          )
+        )
+      }
+    }
   }
 }
 
